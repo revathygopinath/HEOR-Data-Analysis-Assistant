@@ -1,0 +1,11 @@
+patient_id,age,sex,eGFR,diabetes,systolic_bp,ckd_stage
+V01,40,Male,90,No,120,G1
+V02,50,Female,60,Yes,130,G2
+V03,60,Male,45,No,140,G3a
+V04,70,Female,30,Yes,150,G3b
+V05,80,Male,,No,160,G4
+V06,150,Female,20,No,,G4
+V07,55,Unknown,20,Yes,135,G5
+V08,65,Female,75,No,145,G2
+V09,30,Male,,No,123,G3a
+V02,50,Female,60,Yes,130,G2
