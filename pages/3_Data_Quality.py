@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from tools.data_quality import assess_data_quality
+from ui.ai_explain import show_ai_explanation
 from workflow.session import get_dataset, get_dataset_name
 
 st.title("Data quality dashboard")
@@ -84,3 +85,6 @@ outlier_table = pd.DataFrame(
 st.dataframe(outlier_table, hide_index=True, width="stretch")
 st.caption("A value is a possible outlier if it is below Q1 - 1.5 x IQR or above Q3 + 1.5 x IQR. "
            "Outliers are not always errors. A human should check them.")
+
+# ---- 6. Optional: ask the AI to explain the results above ----
+show_ai_explanation("data_quality")

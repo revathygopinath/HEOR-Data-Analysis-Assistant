@@ -55,13 +55,20 @@ _PLAIN_CHARACTERS = {"\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-",
 def _safe_text(text: str) -> str:
     """Make outside text (like the AI explanation) safe to put in the PDF.
 
-    1. Swap fancy characters for plain ones (see above).
-    2. html.escape: ReportLab reads <, > and & as formatting commands,
+    1. html.unescape: if the AI wrote codes like &#34; (a code for "), turn them
+       back into the real character first, so the reader never sees the code.
+    2. Swap fancy characters for plain ones (see above).
+    3. html.escape: ReportLab reads <, > and & as formatting commands,
        so a "<" in the text could break the PDF. Escaping turns it into plain text.
+       quote=False: leave " and ' as they are (they are safe in a PDF paragraph).
+    4. Keep the AI's line breaks (for example bullet points). A PDF paragraph
+       ignores normal line breaks, so we turn each one into <br/> (a PDF line break).
     """
+    text = html.unescape(text)
     for fancy, plain in _PLAIN_CHARACTERS.items():
         text = text.replace(fancy, plain)
-    return html.escape(text)
+    text = html.escape(text, quote=False)
+    return text.replace("\n", "<br/>")
 
 
 def _simple_table(rows: list[list], col_widths=None) -> Table:

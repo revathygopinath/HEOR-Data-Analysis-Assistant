@@ -17,8 +17,14 @@ st.markdown(
     """
 1. Go to **Upload** in the left menu and upload a CSV file.
 2. Go to **Preview** to check the data looks right.
-3. Go to **AI Assistant** and ask questions in plain English.
-4. More pages (data quality, statistics, charts, report) come in Phase 4.
+3. **Data Quality**: missing values, duplicates, unexpected values and outliers.
+4. **Descriptive Analysis**: baseline characteristics and summary statistics.
+5. **Visualizations**: histograms, bar charts and box plots.
+6. **Report**: download a preliminary PDF report.
+7. **AI Assistant**: ask questions in plain English.
+
+Pages 3, 4 and 6 also have an **Explain with AI** button.
+Every number comes from Python. The AI only explains the numbers.
 """
 )
 

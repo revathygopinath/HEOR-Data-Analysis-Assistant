@@ -8,6 +8,7 @@ import pandas as pd
 import streamlit as st
 
 from tools.descriptive_stats import describe_dataset
+from ui.ai_explain import show_ai_explanation
 from workflow.session import get_dataset, get_dataset_name
 
 st.title("Descriptive analysis")
@@ -61,3 +62,6 @@ else:
                "Percentages use n (the patients with a value).")
 
 st.info(stats["note"])
+
+# ---- 6. Optional: ask the AI to explain the results above ----
+show_ai_explanation("descriptive")

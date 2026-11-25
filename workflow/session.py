@@ -60,3 +60,23 @@ def reset_chat() -> None:
     """Forget the agent and the chat (the dataset stays loaded)."""
     for key in (_AGENT_KEY, _AGENT_FOR_KEY, _CHAT_KEY):
         st.session_state.pop(key, None)
+
+
+# ---- Phase 4: AI explanations on the dashboard pages ----
+# Saved per page ("topic"), so the explanation stays when you click around.
+# We also save WHICH dataset it was for: a new upload means old explanations
+# no longer fit, so we do not show them.
+_EXPLAIN_KEY = "explanations"
+
+
+def save_explanation(topic: str, explanation) -> None:
+    saved = st.session_state.setdefault(_EXPLAIN_KEY, {})
+    saved[topic] = (get_dataset_name(), explanation)
+
+
+def get_explanation(topic: str):
+    """The saved explanation for this page and this dataset, or None."""
+    dataset_name, explanation = st.session_state.get(_EXPLAIN_KEY, {}).get(topic, (None, None))
+    if dataset_name != get_dataset_name():
+        return None
+    return explanation

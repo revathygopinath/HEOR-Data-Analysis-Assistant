@@ -77,7 +77,8 @@ class ReportInputs(BaseModel):
 def _run_profile(df, inputs, outputs):
     p = profile_dataset(df, sample_rows=3)
     return {k: p[k] for k in ("n_rows", "n_columns", "column_types",
-                              "numeric_columns", "categorical_columns", "sample_records")}
+                              "numeric_columns", "categorical_columns", "id_columns",
+                              "sample_records")}
 
 
 def _run_quality(df, inputs, outputs):

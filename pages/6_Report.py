@@ -10,6 +10,7 @@ import streamlit as st
 from tools.descriptive_stats import summarize_categorical
 from tools.profiling import profile_dataset
 from tools.report import LIMITATIONS, METHODS, generate_report
+from ui.ai_explain import show_ai_explanation
 from workflow.session import get_dataset, get_dataset_name
 
 st.title("Downloadable report")
@@ -30,7 +31,7 @@ The PDF report has these parts:
 2. Data quality
 3. Baseline characteristics
 4. Charts
-5. Explanation (the AI explanation is added in the next step)
+5. AI explanation (optional: click "Explain with AI" below first)
 6. Methods
 7. Assumptions and limitations
 """
@@ -46,10 +47,25 @@ chart_columns = st.multiselect(
     key="report_columns",
 )
 
-# ---- 3. Build the PDF and offer it ----
+# ---- 3. Optional AI explanation for part 5 of the PDF ----
+explanation = show_ai_explanation("report")
+explanation_text = None
+if explanation is not None:
+    if explanation.unverified_numbers:
+        # The PDF is the thing people keep and share, so we are strict here:
+        # an explanation with unchecked numbers does NOT go into the PDF.
+        st.error("This explanation is NOT added to the PDF, because some numbers could "
+                 "not be checked. Click 'Explain with AI' again to get a new one.")
+    else:
+        explanation_text = explanation.text
+        st.success("This explanation will be added to part 5 of the PDF.")
+
+# ---- 4. Build the PDF and offer it ----
 # Our datasets are small, so building the PDF takes well under a second.
 # We build it on every run, so the download button always has the latest version.
+st.subheader("Download")
 pdf_bytes = generate_report(df, get_dataset_name() or "dataset",
+                            explanation=explanation_text,
                             chart_columns=chart_columns)
 
 st.download_button(
@@ -60,7 +76,7 @@ st.download_button(
     key="download_report",
 )
 
-# ---- 4. Show methods and limitations on screen too ----
+# ---- 5. Show methods and limitations on screen too ----
 with st.expander("Methods used in the report"):
     for line in METHODS:
         st.markdown(f"- {line}")
