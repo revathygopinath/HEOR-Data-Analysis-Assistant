@@ -1,5 +1,8 @@
+"""Tests for tools/visualization.py. Run with:  python -m pytest"""
+
 import pandas as pd
 import pytest
+
 from tools.visualization import ChartError, bar_chart, box_plot, histogram, make_chart
 
 
@@ -41,3 +44,33 @@ def test_make_chart_picks_the_right_one():
     assert fig.data[0].type == "bar"
     with pytest.raises(ChartError):
         make_chart(make_df(), "pie", "ckd_stage")
+
+
+# ---- Phase 5: the box plot must show OUR numbers (the same as the tables) ----
+
+def _validation_df():
+    from pathlib import Path
+    return pd.read_csv(Path(__file__).resolve().parent.parent / "data" / "validation_known_answers.csv")
+
+
+def test_box_plot_quartiles_match_the_descriptive_table():
+    from tools.descriptive_stats import summarize_numeric
+    df = _validation_df()
+    box = box_plot(df, "eGFR").data[0]
+    table = summarize_numeric(df, ["eGFR"])["eGFR"]
+    assert (box.q1[0], box.median[0], box.q3[0]) == (table["q1"], table["median"], table["q3"])
+
+
+def test_box_plot_per_group_uses_pandas_quartiles():
+    # Female eGFR values: 20, 30, 60, 60, 75 -> pandas Q1 = 30, Q3 = 60
+    # (Plotly on its own would draw 27.5 and 63.75)
+    fig = box_plot(_validation_df(), "eGFR", group_by="sex")
+    female = [t for t in fig.data if t.type == "box" and t.x[0].startswith("Female")][0]
+    assert (female.q1[0], female.median[0], female.q3[0]) == (30.0, 60.0, 60.0)
+
+
+def test_box_plot_outliers_match_the_data_quality_page():
+    fig = box_plot(_validation_df(), "age")
+    dots = [t for t in fig.data if t.type == "scatter"]
+    assert list(dots[0].y) == [150.0]                  # the same 1 outlier as Tool 2
+    assert fig.data[0].upperfence[0] == 80.0          # whisker stops at the last normal age
