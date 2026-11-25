@@ -51,3 +51,10 @@ def test_does_not_change_the_data():
     before = df.copy()
     assess_data_quality(df)
     pd.testing.assert_frame_equal(df, before)
+
+
+def test_summary_uses_singular_for_one():
+    from tools.data_quality import plural
+    assert plural(1, "duplicate row") == "1 duplicate row"
+    assert plural(3, "duplicate row") == "3 duplicate rows"
+    assert plural(0, "possible outlier") == "0 possible outliers"

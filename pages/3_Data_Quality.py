@@ -8,7 +8,7 @@ Nothing in the data is changed or removed.
 import pandas as pd
 import streamlit as st
 
-from tools.data_quality import assess_data_quality
+from tools.data_quality import assess_data_quality, plural
 from ui.ai_explain import show_ai_explanation
 from workflow.session import get_dataset, get_dataset_name
 
@@ -57,7 +57,9 @@ st.subheader("2. Duplicate rows")
 if duplicates["count"] == 0:
     st.success("No duplicate rows found.")
 else:
-    st.write(f"{duplicates['count']} rows are exact copies of an earlier row:")
+    st.write(f"{plural(duplicates['count'], 'row')} "
+             f"{'is an exact copy' if duplicates['count'] == 1 else 'are exact copies'} "
+             f"of an earlier row:")
     # Row numbers start at 1, but .iloc (pick rows by position) starts at 0, so we subtract 1.
     rows = duplicates["row_numbers"]
     dup_rows = df.iloc[[r - 1 for r in rows]].copy()

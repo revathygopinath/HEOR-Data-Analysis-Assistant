@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from tools.visualization import ChartError, bar_chart, box_plot, histogram, make_chart
+from tools.visualization import ChartError, bar_chart, box_plot, histogram, histogram_counts, make_chart
 
 
 def make_df():
@@ -74,3 +74,18 @@ def test_box_plot_outliers_match_the_data_quality_page():
     dots = [t for t in fig.data if t.type == "scatter"]
     assert list(dots[0].y) == [150.0]                  # the same 1 outlier as Tool 2
     assert fig.data[0].upperfence[0] == 80.0          # whisker stops at the last normal age
+
+
+# ---- Phase 5, fix 3: histogram counts come from Python and match the PDF ----
+
+def test_histogram_counts_match_the_raw_data():
+    # eGFR values 20, 20, 30, 45, 60, 60, 75, 90 -> 10 bins of width 7 from 20 to 90
+    h = histogram_counts(_validation_df()["eGFR"])
+    assert h["n"] == 8
+    assert sum(h["counts"]) == 8
+    assert h["counts"] == [2, 1, 0, 1, 0, 2, 0, 1, 0, 1]
+
+
+def test_small_counts_get_whole_number_ticks():
+    fig = histogram(_validation_df(), "eGFR")
+    assert fig.layout.yaxis.dtick == 1               # no "0.5 patients" on the axis

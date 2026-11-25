@@ -32,6 +32,11 @@ def _row_number(index_value) -> int:
     return int(index_value) + 1
 
 
+def plural(count: int, word: str) -> str:
+    """'1 row', '2 rows'. Small helper so the summary reads like normal English."""
+    return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
 def check_missing(df: pd.DataFrame) -> dict:
     """Missing values per column: count and percentage."""
     result = {}
@@ -115,14 +120,14 @@ def assess_data_quality(df: pd.DataFrame) -> dict:
     summary = []
     for col, info in missing.items():
         if info["count"] > 0:
-            summary.append(f"{col}: {info['count']} missing values ({info['percent']}%).")
+            summary.append(f"{col}: {plural(info['count'], 'missing value')} ({info['percent']}%).")
     if duplicates["count"] > 0:
-        summary.append(f"{duplicates['count']} duplicate rows found.")
+        summary.append(f"{plural(duplicates['count'], 'duplicate row')} found.")
     for p in unexpected:
         summary.append(f"{p['column']} = {p['value']} in row {p['row_number']} is {p['reason']}.")
     for col, info in outliers.items():
         if info["count"] > 0:
-            summary.append(f"{col}: {info['count']} possible outliers (IQR rule).")
+            summary.append(f"{col}: {plural(info['count'], 'possible outlier')} (IQR rule).")
     if not summary:
         summary.append("No data-quality problems found.")
 

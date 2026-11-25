@@ -8,6 +8,7 @@ Each function returns a Plotly Figure. It does NOT show it.
 The page (Streamlit) or the report decides how to show it.
 """
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -28,13 +29,42 @@ def _check_column(df: pd.DataFrame, column: str, must_be_numeric: bool) -> None:
         raise ChartError(f"'{column}' is a number column, so it needs a histogram or box plot.")
 
 
-def histogram(df: pd.DataFrame, column: str, bins: int = 20) -> go.Figure:
+def _whole_number_axis(fig: go.Figure, biggest_count: int) -> None:
+    """Patients come in whole numbers. With small counts, Plotly may put 0.5 and 1.5
+    on the axis, so we ask for a tick at every whole number instead."""
+    if biggest_count <= 10:
+        fig.update_yaxes(dtick=1)
+
+
+def histogram_counts(series: pd.Series, bins: int = 10) -> dict:
+    """Count how many values fall in each bin, with numpy (Python, not Plotly).
+
+    We use the SAME rule as the PDF report (numpy, 10 equal-width bins), so the
+    chart on screen and the chart in the PDF always show the same counts.
+    """
+    values = series.dropna()
+    counts, edges = np.histogram(values, bins=bins)
+    return {"counts": counts.tolist(), "edges": edges.tolist(), "n": int(len(values))}
+
+
+def histogram(df: pd.DataFrame, column: str, bins: int = 10) -> go.Figure:
     """How the values of one number column are spread out."""
     _check_column(df, column, must_be_numeric=True)
-    n_used = int(df[column].notna().sum())
-    fig = px.histogram(df, x=column, nbins=bins,
-                       title=f"Distribution of {column} (n = {n_used})")
-    fig.update_layout(yaxis_title="Number of patients", bargap=0.05)
+    if df[column].notna().sum() == 0:
+        raise ChartError(f"'{column}' has no values to plot.")
+    h = histogram_counts(df[column], bins)
+    edges = h["edges"]
+    # One bar per bin: the bar sits in the middle of its bin and is as wide as the bin.
+    fig = go.Figure(go.Bar(
+        x=[(edges[i] + edges[i + 1]) / 2 for i in range(len(h["counts"]))],
+        y=h["counts"],
+        width=[edges[i + 1] - edges[i] for i in range(len(h["counts"]))],
+        customdata=[f"{edges[i]:g} to {edges[i + 1]:g}" for i in range(len(h["counts"]))],
+        hovertemplate="%{customdata}: %{y} patients<extra></extra>",
+        marker_line_width=1))
+    fig.update_layout(title=f"Distribution of {column} (n = {h['n']})",
+                      xaxis_title=column, yaxis_title="Number of patients")
+    _whole_number_axis(fig, max(h["counts"]))
     return fig
 
 
@@ -45,6 +75,7 @@ def bar_chart(df: pd.DataFrame, column: str) -> go.Figure:
     fig = px.bar(x=counts.index.astype(str), y=counts.values,
                  labels={"x": column, "y": "Number of patients"},
                  title=f"Patients by {column} (n = {int(counts.sum())})")
+    _whole_number_axis(fig, int(counts.max()) if len(counts) else 0)
     return fig
 
 
