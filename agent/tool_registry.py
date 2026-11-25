@@ -114,8 +114,8 @@ def _run_chart(df, inputs, outputs):
     fig = make_chart(df, inputs.chart_type, inputs.column, inputs.group_by)
     outputs.charts.append(fig)
     return {"chart_created": True, "title": fig.layout.title.text,
-            "note": "The chart is shown to the user on screen. Describe what it shows "
-                    "only using numbers from other tool results."}
+            "note": "The chart is shown to the user on screen. You cannot see it, so do "
+                    "not describe its shape. Use describe_dataset for numbers."}
 
 
 def _run_report(df, inputs, outputs):
