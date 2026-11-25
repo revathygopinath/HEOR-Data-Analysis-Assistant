@@ -1,8 +1,9 @@
-streamlit>=1.50
-pandas>=2.2
-numpy>=1.26
-pytest>=8.0
+streamlit>=1.50      # builds the web page in plain Python
+pandas>=2.2          # reads the CSV and works with tables
+numpy>=1.26          # fast maths (pandas uses it underneath)
+pytest>=8.0          # runs our tests
 plotly>=5.24          # interactive charts (histogram, bar, box plot)
 reportlab>=4.2        # builds the PDF report
-groq
-python-dotenv
+groq>=1.0             # talks to the Groq LLM API (Phase 3)
+python-dotenv>=1.0    # reads the secret API key from the .env file
+pydantic>=2.7         # checks the inputs the AI sends to our tools
