@@ -21,6 +21,7 @@ import pandas as pd
 
 from agent.number_check import find_unverified_numbers
 from agent.tool_registry import ToolOutputs, get_tool_schemas, run_tool
+from agent.wording_rules import WORDING_RULES
 from llm.base import LLMClient, LLMError
 
 MAX_TOOL_ROUNDS = 8     # at most 8 "ask the AI -> run tools" rounds per question
@@ -54,7 +55,8 @@ RULES
    (for example profile_dataset, assess_data_quality, describe_dataset). You may call
    them together in ONE step. In the explanation, copy numbers exactly as the tools
    gave them, and do not add units.
-"""
+
+{wording_rules}"""
 
 
 @dataclass
@@ -75,7 +77,7 @@ class HEORAgent:
         self.history: list[dict] = []  # earlier questions and answers (the "memory")
         self.all_tool_results: list[dict] = []   # every tool result this session (for the number check)
         columns = ", ".join(f"{c}: {t}" for c, t in df.dtypes.astype(str).items())
-        self.system_prompt = SYSTEM_PROMPT.format(columns=columns)
+        self.system_prompt = SYSTEM_PROMPT.format(columns=columns, wording_rules=WORDING_RULES)
 
     def _check_report_text(self, call, tool_log, question) -> dict | None:
         """Before the PDF is made, check the AI's explanation for invented numbers.

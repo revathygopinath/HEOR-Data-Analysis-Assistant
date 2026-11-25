@@ -20,6 +20,7 @@ import pandas as pd
 
 from agent.number_check import find_unverified_numbers
 from agent.tool_registry import ToolOutputs, run_tool
+from agent.wording_rules import WORDING_RULES
 from llm.base import LLMClient
 
 # Which tools each page needs, and what the AI should focus on.
@@ -60,8 +61,10 @@ RULES
 6. Columns in "id_columns" (like patient_id) are identifiers. Do not call them
    categories or variables.
 7. Do NOT list every number. The reader can already see the full tables.
-   Pick only the 3 to 5 most important points, and say why each one matters.
+   Pick only the 3 to 5 most important points, and say why each one matters
+   for the DATA (for example, fewer values to analyse), not for patients' health.
 
+{wording_rules}
 RESULTS (JSON):
 {results}
 """
@@ -87,6 +90,7 @@ def explain(llm: LLMClient, df: pd.DataFrame, topic: str) -> Explanation:
 
     # 2. One AI call, with NO tools offered: the AI can only write text
     prompt = EXPLAIN_PROMPT.format(focus=settings["focus"],
+                                   wording_rules=WORDING_RULES,
                                    results=json.dumps(results, default=str))
     reply = llm.chat([{"role": "user", "content": prompt}], tools=None)
     text = reply.text or "(The AI gave an empty answer.)"
