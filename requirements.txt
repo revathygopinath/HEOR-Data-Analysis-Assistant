@@ -4,3 +4,5 @@ numpy>=1.26
 pytest>=8.0
 plotly>=5.24          # interactive charts (histogram, bar, box plot)
 reportlab>=4.2        # builds the PDF report
+groq
+python-dotenv
