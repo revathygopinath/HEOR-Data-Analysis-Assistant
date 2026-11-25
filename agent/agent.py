@@ -23,7 +23,8 @@ from agent.number_check import find_unverified_numbers
 from agent.tool_registry import ToolOutputs, get_tool_schemas, run_tool
 from llm.base import LLMClient, LLMError
 
-MAX_TOOL_ROUNDS = 5     # at most 5 "ask the AI -> run tools" rounds per question
+MAX_TOOL_ROUNDS = 8     # at most 8 "ask the AI -> run tools" rounds per question
+                        # (a report needs about 3 data tools + the report + maybe 1-2 retries)
 MAX_HISTORY = 10        # remember the last 10 chat messages (5 questions + 5 answers)
 
 SYSTEM_PROMPT = """You are an HEOR / real-world-evidence data analysis assistant.
@@ -49,6 +50,10 @@ RULES
    predictions, life-years gained, costs or other economic outcomes.
 8. You cannot see charts. When a chart is made, say it is shown on screen, but do not
    describe its shape, peaks or skew. Describe only numbers from statistics tools.
+9. Before calling generate_report, run the tools whose numbers you want to mention
+   (for example profile_dataset, assess_data_quality, describe_dataset). You may call
+   them together in ONE step. In the explanation, copy numbers exactly as the tools
+   gave them, and do not add units.
 """
 
 
@@ -63,16 +68,37 @@ class AgentAnswer:
 
 
 class HEORAgent:
-    def __init__(self, llm: LLMClient, df: pd.DataFrame):
+    def __init__(self, llm: LLMClient, df: pd.DataFrame, dataset_name: str = "dataset"):
         self.llm = llm                 # any provider that fits the LLMClient "socket"
         self.df = df
+        self.dataset_name = dataset_name   # printed on the PDF report
         self.history: list[dict] = []  # earlier questions and answers (the "memory")
         self.all_tool_results: list[dict] = []   # every tool result this session (for the number check)
         columns = ", ".join(f"{c}: {t}" for c, t in df.dtypes.astype(str).items())
         self.system_prompt = SYSTEM_PROMPT.format(columns=columns)
 
+    def _check_report_text(self, call, tool_log, question) -> dict | None:
+        """Before the PDF is made, check the AI's explanation for invented numbers.
+
+        The PDF is the thing people keep and share, so here we are stricter than
+        in the chat: instead of a warning, we send an error back to the AI and
+        it must write the explanation again without those numbers.
+        """
+        if call.name != "generate_report" or not isinstance(call.arguments, dict):
+            return None
+        explanation = call.arguments.get("explanation")
+        if not isinstance(explanation, str):
+            return None                       # Pydantic in run_tool reports this problem
+        known = self.all_tool_results + [result for _, _, result in tool_log]
+        bad = find_unverified_numbers(explanation, known, question)
+        if not bad:
+            return None
+        return {"error": f"The explanation contains numbers that did not come from any "
+                         f"tool: {bad}. Remove them (and any units you added), or call a "
+                         f"tool to get them, then call generate_report again."}
+
     def ask(self, question: str) -> AgentAnswer:
-        outputs = ToolOutputs()        # charts / PDF made while answering this question
+        outputs = ToolOutputs(dataset_name=self.dataset_name)   # charts / PDF for this question
         tool_log = []
         messages = ([{"role": "system", "content": self.system_prompt}]
                     + self.history
@@ -98,7 +124,11 @@ class HEORAgent:
                 })
 
                 for call in reply.tool_calls:                                 # step 3
-                    result = run_tool(call.name, call.arguments, self.df, outputs)
+                    problem = self._check_report_text(call, tool_log, question)
+                    if problem:
+                        result = problem          # do NOT make the PDF; let the AI fix its text
+                    else:
+                        result = run_tool(call.name, call.arguments, self.df, outputs)
                     tool_log.append((call.name, call.arguments, result))
                     messages.append({
                         "role": "tool",
@@ -108,7 +138,10 @@ class HEORAgent:
                     })
                 # ... and loop back to step 1 with the results added       # step 4
 
-            if text is None:
+            if text is None and (outputs.report_pdf or outputs.charts):
+                text = ("I made what you asked for (see below), but I ran out of steps "
+                        "before writing a summary. Please check the 'Tools used' box.")
+            elif text is None:
                 text = ("I needed too many tool steps for this question, so I stopped. "
                         "Please try asking a smaller or more specific question.")
         except LLMError as err:

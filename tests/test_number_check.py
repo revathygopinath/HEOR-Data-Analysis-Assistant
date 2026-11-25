@@ -23,3 +23,14 @@ def test_category_names_like_G3b_are_not_numbers():
 
 def test_numbers_from_the_question_are_allowed():
     assert find_unverified_numbers("Patients over 65 ...", [], question="age over 65") == []
+
+
+def test_unit_glued_to_a_number_is_caught():
+    # Found in a real report: "55.0 mL/min/1.73m²" - the AI added units with no space.
+    assert find_unverified_numbers("eGFR 55.0 mL/min/1.73m²", [TOOL_RESULT]) == ["1.73"]
+
+
+def test_normal_rounding_is_allowed():
+    # Python said 14.65; the AI wrote 14.7. That is honest rounding, not invention.
+    assert find_unverified_numbers("SD 14.7", [{"sd": 14.65}]) == []
+    assert find_unverified_numbers("SD 14.8", [{"sd": 14.65}]) == ["14.8"]

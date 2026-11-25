@@ -17,7 +17,8 @@ st.markdown(
     """
 1. Go to **Upload** in the left menu and upload a CSV file.
 2. Go to **Preview** to check the data looks right.
-3. More pages (data quality, statistics, charts, AI assistant, report) come in later phases.
+3. Go to **AI Assistant** and ask questions in plain English.
+4. More pages (data quality, statistics, charts, report) come in Phase 4.
 """
 )
 

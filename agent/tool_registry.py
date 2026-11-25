@@ -39,6 +39,7 @@ MAX_LIST = 10    # never send the AI more than 10 row numbers / problems per lis
 class ToolOutputs:
     charts: list = field(default_factory=list)   # Plotly figures, newest last
     report_pdf: bytes | None = None
+    dataset_name: str = "dataset"                # shown on the PDF (set by the agent)
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +120,8 @@ def _run_chart(df, inputs, outputs):
 
 
 def _run_report(df, inputs, outputs):
-    outputs.report_pdf = generate_report(df, explanation=inputs.explanation)
+    outputs.report_pdf = generate_report(df, dataset_name=outputs.dataset_name,
+                                         explanation=inputs.explanation)
     return {"report_created": True,
             "note": "The PDF is ready for the user to download from the page."}
 

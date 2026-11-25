@@ -1,5 +1,17 @@
-"""Tool 5: Report Generation (PDF with ReportLab). Calculates nothing new."""
+"""Tool 5: Report Generation (PDF with ReportLab).
 
+Puts the results of Tools 1-3 into one PDF, with simple charts,
+methods, assumptions and limitations.
+
+It does NOT calculate anything new. It calls the other tools and
+writes their answers onto paper. (This is the "middle way" from earlier:
+one call runs everything, but the small tools stay separate.)
+
+Charts: ReportLab draws its own simple bar charts, so we need no extra
+software. The interactive Plotly charts stay in the Streamlit app.
+"""
+
+import html
 import io
 from datetime import date
 
@@ -32,7 +44,27 @@ LIMITATIONS = [
 ]
 
 
-def _simple_table(rows, col_widths=None) -> Table:
+# Characters the built-in PDF font cannot draw (they show as a black box),
+# swapped for plain ones. AI models like to use these "fancy" characters.
+_PLAIN_CHARACTERS = {"\u2010": "-", "\u2011": "-", "\u2012": "-", "\u2013": "-",
+                     "\u2014": "-", "\u2212": "-", "\u2018": "'", "\u2019": "'",
+                     "\u201c": '"', "\u201d": '"', "\u2026": "...", "\u00a0": " ",
+                     "\u202f": " ", "\u2248": "approx. "}
+
+
+def _safe_text(text: str) -> str:
+    """Make outside text (like the AI explanation) safe to put in the PDF.
+
+    1. Swap fancy characters for plain ones (see above).
+    2. html.escape: ReportLab reads <, > and & as formatting commands,
+       so a "<" in the text could break the PDF. Escaping turns it into plain text.
+    """
+    for fancy, plain in _PLAIN_CHARACTERS.items():
+        text = text.replace(fancy, plain)
+    return html.escape(text)
+
+
+def _simple_table(rows: list[list], col_widths=None) -> Table:
     """A table with a grey header row and thin grid lines."""
     t = Table(rows, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
@@ -43,7 +75,7 @@ def _simple_table(rows, col_widths=None) -> Table:
     return t
 
 
-def _bar_drawing(labels, heights, title) -> Drawing:
+def _bar_drawing(labels: list[str], heights: list[int], title: str) -> Drawing:
     """A small bar chart drawn by ReportLab."""
     d = Drawing(450, 200)
     chart = VerticalBarChart()
@@ -58,14 +90,14 @@ def _bar_drawing(labels, heights, title) -> Drawing:
     return d
 
 
-def _histogram_drawing(series, column, bins=10) -> Drawing:
+def _histogram_drawing(series: pd.Series, column: str, bins: int = 10) -> Drawing:
     values = series.dropna()
     counts, edges = np.histogram(values, bins=bins)   # numpy does the counting
     labels = [f"{edges[i]:.0f}-{edges[i + 1]:.0f}" for i in range(len(counts))]
     return _bar_drawing(labels, counts.tolist(), f"Distribution of {column} (n = {len(values)})")
 
 
-def _category_drawing(series, column) -> Drawing:
+def _category_drawing(series: pd.Series, column: str) -> Drawing:
     counts = series.value_counts(dropna=True).sort_index()
     return _bar_drawing([str(x) for x in counts.index], counts.tolist(),
                         f"Patients by {column} (n = {int(counts.sum())})")
@@ -74,26 +106,33 @@ def _category_drawing(series, column) -> Drawing:
 def generate_report(df: pd.DataFrame, dataset_name: str = "dataset",
                     explanation: str | None = None,
                     chart_columns: list[str] | None = None) -> bytes:
-    """Build the PDF and return it as bytes (Streamlit can offer bytes as a download)."""
+    """Build the PDF and return it as bytes (Streamlit can offer bytes as a download).
+
+    explanation: text from the AI (Phase 3/4). Until then we leave a placeholder.
+    chart_columns: which columns to draw. Default: all number + category columns, max 4.
+    """
     profile = profile_dataset(df)
     quality = assess_data_quality(df)
     stats = describe_dataset(df)
 
     styles = getSampleStyleSheet()
     H1, H2, P = styles["Title"], styles["Heading2"], styles["BodyText"]
-    story = []                       # everything we put on the pages, in order
+    story = []                                         # everything we put on the pages, in order
 
+    # --- Title ---
     story.append(Paragraph("Preliminary HEOR Data Analysis Report", H1))
     story.append(Paragraph(f"Dataset: {dataset_name} &nbsp;|&nbsp; Date: {date.today()}", P))
     story.append(Paragraph("<b>EXPLORATORY ANALYSIS - for human review, not for decisions.</b>", P))
     story.append(Spacer(1, 12))
 
+    # --- 1. Overview (Tool 1) ---
     story.append(Paragraph("1. Dataset overview", H2))
     story.append(Paragraph(
         f"{profile['n_rows']} rows and {profile['n_columns']} columns. "
         f"Number columns: {', '.join(profile['numeric_columns']) or 'none'}. "
         f"Category columns: {', '.join(profile['categorical_columns']) or 'none'}.", P))
 
+    # --- 2. Data quality (Tool 2) ---
     story.append(Paragraph("2. Data quality", H2))
     miss_rows = [["Column", "Missing", "%"]] + [
         [col, m["count"], m["percent"]] for col, m in quality["missing_values"].items()]
@@ -103,25 +142,35 @@ def generate_report(df: pd.DataFrame, dataset_name: str = "dataset",
         story.append(Paragraph(f"&bull; {line}", P))
     story.append(Paragraph(quality["note"], P))
 
+    # --- 3. Baseline characteristics (Tool 3) ---
     story.append(Paragraph("3. Baseline characteristics", H2))
     base_rows = [["Variable", "Level / statistic", "Value", "n"]] + [
         [r["variable"], r["level"], r["value"], r["n"]] for r in stats["baseline_table"]]
     story.append(_simple_table(base_rows, col_widths=[100, 110, 130, 40]))
 
+    # --- 4. Charts ---
     story.append(Paragraph("4. Charts", H2))
     if chart_columns is None:
         chart_columns = (profile["numeric_columns"] + list(stats["categorical_summary"]))[:4]
     for col in chart_columns:
         if col not in df.columns:
-            continue                 # skip unknown columns instead of crashing
+            continue
         if pd.api.types.is_numeric_dtype(df[col]):
             story.append(_histogram_drawing(df[col], col))
         else:
             story.append(_category_drawing(df[col], col))
 
+    # --- 5. AI explanation ---
     story.append(Paragraph("5. Explanation (exploratory)", H2))
-    story.append(Paragraph(explanation or "No AI explanation added yet.", P))
+    if explanation:
+        story.append(Paragraph(
+            "<i>Written by an AI model from the tool results above. Every number in it "
+            "was checked automatically against the Python results. Please review.</i>", P))
+        story.append(Paragraph(_safe_text(explanation), P))
+    else:
+        story.append(Paragraph("No AI explanation added yet.", P))
 
+    # --- 6. Methods, 7. Assumptions and limitations ---
     story.append(Paragraph("6. Methods", H2))
     for line in METHODS:
         story.append(Paragraph(f"&bull; {line}", P))
@@ -129,6 +178,7 @@ def generate_report(df: pd.DataFrame, dataset_name: str = "dataset",
     for line in LIMITATIONS:
         story.append(Paragraph(f"&bull; {line}", P))
 
-    buffer = io.BytesIO()            # a "file" that lives in memory
+    # Write the PDF into memory (not to disk) and return the bytes
+    buffer = io.BytesIO()
     SimpleDocTemplate(buffer, pagesize=A4, title="HEOR preliminary report").build(story)
     return buffer.getvalue()

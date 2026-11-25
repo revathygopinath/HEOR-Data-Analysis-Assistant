@@ -97,3 +97,17 @@ def test_invented_number_is_flagged(df):
                    LLMReply(text="Mean age is 60.0 and the average is really 61.5.")])
     answer = HEORAgent(llm, df).ask("Mean age?")
     assert answer.unverified_numbers == ["61.5"]
+
+
+def test_report_with_invented_number_is_refused_then_fixed(df):
+    llm = FakeLLM([
+        _tool("describe_dataset", {"columns": ["age"]}, "a"),
+        _tool("generate_report", {"explanation": "Mean age is 60.0, like 72.5% of studies."}, "b"),
+        _tool("generate_report", {"explanation": "Mean age is 60.0."}, "c"),
+        LLMReply(text="Your report is ready."),
+    ])
+    answer = HEORAgent(llm, df).ask("Make a report")
+    first_try, second_try = answer.tool_log[1][2], answer.tool_log[2][2]
+    assert "72.5" in first_try["error"]           # refused: 72.5 came from no tool
+    assert second_try["report_created"] is True   # accepted after the AI fixed it
+    assert answer.report_pdf.startswith(b"%PDF")
