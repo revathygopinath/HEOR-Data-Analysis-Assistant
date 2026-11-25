@@ -12,7 +12,8 @@ from tools.data_quality import assess_data_quality
 from workflow.session import get_dataset, get_dataset_name
 
 st.title("Data quality dashboard")
-st.caption("Problems are only flagged for human review. No records are changed or removed.")
+st.caption("Problems are only flagged for human review. No records are changed or removed. "
+           "Row numbers count the first patient row as row 1.")
 
 # ---- 1. We need data first ----
 df = get_dataset()
@@ -56,8 +57,12 @@ if duplicates["count"] == 0:
     st.success("No duplicate rows found.")
 else:
     st.write(f"{duplicates['count']} rows are exact copies of an earlier row:")
-    # .loc picks the rows by their row number so the analyst can look at them
-    st.dataframe(df.loc[duplicates["row_numbers"]], width="stretch")
+    # Row numbers start at 1, but .iloc (pick rows by position) starts at 0, so we subtract 1.
+    rows = duplicates["row_numbers"]
+    dup_rows = df.iloc[[r - 1 for r in rows]].copy()
+    dup_rows.index = rows                     # show the same row numbers as the summary
+    dup_rows.index.name = "row"
+    st.dataframe(dup_rows, width="stretch")
 
 st.subheader("3. Unexpected values")
 if not unexpected:

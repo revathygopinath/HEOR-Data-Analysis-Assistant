@@ -1,10 +1,14 @@
+"""Tests for tools/data_quality.py. Run with:  python -m pytest"""
+
 import pandas as pd
+
 from tools.data_quality import (assess_data_quality, check_duplicates,
                                 check_missing, check_outliers, check_unexpected)
 
 
 def make_messy_df():
-    # Planted: 1 missing eGFR, 1 duplicate row, age 150, sex "Unknown"
+    # 5 rows. We planted: 1 missing eGFR, 1 duplicate row,
+    # age 150 (impossible), sex "Unknown" (not allowed).
     return pd.DataFrame({
         "age": [50, 60, 150, 60, 70],
         "sex": ["Male", "Female", "Unknown", "Female", "Male"],
@@ -21,20 +25,20 @@ def test_missing_count_and_percent():
 def test_duplicates_found():
     result = check_duplicates(make_messy_df())
     assert result["count"] == 1
-    assert result["row_numbers"] == [3]      # row 3 copies row 1
+    assert result["row_numbers"] == [4]      # 4th patient row copies the 2nd
 
 
 def test_unexpected_values_found():
     problems = check_unexpected(make_messy_df())
     found = {(p["column"], p["row_number"]) for p in problems}
-    assert found == {("age", 2), ("sex", 2)}
+    assert found == {("age", 3), ("sex", 3)}    # the 3rd patient row
 
 
 def test_outlier_rule():
     df = pd.DataFrame({"x": [10, 11, 12, 13, 14, 100]})
     result = check_outliers(df)
-    assert result["x"]["count"] == 1          # only 100 is flagged
-    assert result["x"]["row_numbers"] == [5]
+    assert result["x"]["count"] == 1
+    assert result["x"]["row_numbers"] == [6]    # 100 is the 6th value
 
 
 def test_clean_data_says_no_problems():
